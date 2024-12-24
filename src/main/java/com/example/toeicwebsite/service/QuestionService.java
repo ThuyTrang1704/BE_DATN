@@ -3,6 +3,7 @@ package com.example.toeicwebsite.service;
 import com.example.toeicwebsite.data.dto.MessageResponse;
 import com.example.toeicwebsite.data.dto.PaginationDTO;
 import com.example.toeicwebsite.data.dto.QuestionDTO;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -18,4 +19,5 @@ public interface QuestionService {
     MessageResponse createQuestion(QuestionDTO questionDTO);
 
     MessageResponse deleteQuestion(Long questionId);
+    void importQuestionsFromExcel(MultipartFile file) throws Exception;
 }

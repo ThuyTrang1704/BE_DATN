@@ -9,12 +9,18 @@ import com.example.toeicwebsite.data.repository.TopicRepository;
 import com.example.toeicwebsite.exception.ConflictException;
 import com.example.toeicwebsite.exception.ResourceNotFoundException;
 import com.example.toeicwebsite.service.QuestionService;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletResponse;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -146,5 +152,40 @@ public class QuestionServiceImpl implements QuestionService {
         questionRepository.delete(question);
 
         return new MessageResponse(HttpServletResponse.SC_OK, "xoa question and answer thanh cong");
+    }
+
+    @Override
+    public void importQuestionsFromExcel(MultipartFile file) throws Exception {
+        if (!file.getOriginalFilename().endsWith(".xlsx")) {
+            throw new IllegalArgumentException("Định dạng file không hợp lệ. Vui lòng tải lên file Excel (.xlsx).");
+        }
+
+        try (InputStream inputStream = file.getInputStream();
+             Workbook workbook = new XSSFWorkbook(inputStream)) {
+            Sheet sheet = workbook.getSheetAt(0); // Lấy sheet đầu tiên
+            for (Row row : sheet) {
+                if (row.getRowNum() == 0) { // Bỏ qua hàng tiêu đề
+                    continue;
+                }
+
+                QuestionDTO questionDTO = new QuestionDTO();
+                questionDTO.setName(row.getCell(0).getStringCellValue()); // Tên câu hỏi
+                questionDTO.setTopicId((long) row.getCell(1).getNumericCellValue()); // ID topic
+
+                List<AnswerDTO> answers = new ArrayList<>();
+                for (int i = 2; i < row.getLastCellNum(); i += 2) {
+                    if (row.getCell(i) == null || row.getCell(i + 1) == null) break;
+
+                    AnswerDTO answerDTO = new AnswerDTO();
+                    answerDTO.setContent(row.getCell(i).getStringCellValue()); // Nội dung câu trả lời
+                    answerDTO.setCorrectAnswer(row.getCell(i + 1).getBooleanCellValue()); // Đúng/Sai
+                    answers.add(answerDTO);
+                }
+                questionDTO.setAnswers(answers);
+
+                // Gọi phương thức để lưu câu hỏi
+                createQuestion(questionDTO);
+            }
+        }
     }
 }

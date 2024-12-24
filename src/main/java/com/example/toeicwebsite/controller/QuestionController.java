@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.validation.Valid;
 
@@ -55,4 +56,19 @@ public class QuestionController {
     public ResponseEntity<?> deletePart(@RequestParam Long questionId) {
         return ResponseEntity.ok(questionService.deleteQuestion(questionId));
     }
+
+    @SecurityRequirement(name = "Bearer Authentication")
+    @PreAuthorize("hasAuthority('Role_Admin')")
+    @PostMapping("/uploadQuestions")
+    public ResponseEntity<?> uploadQuestions(@RequestParam("file") MultipartFile file) {
+        try {
+            questionService.importQuestionsFromExcel(file);
+            return ResponseEntity.ok("Nhập câu hỏi thành công.");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Lỗi khi nhập câu hỏi: " + e.getMessage());
+        }
+    }
+
+
+
 }
