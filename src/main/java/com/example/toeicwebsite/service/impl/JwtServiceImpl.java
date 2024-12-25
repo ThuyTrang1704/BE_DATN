@@ -80,4 +80,34 @@ public class JwtServiceImpl implements JwtService {
                         .parseClaimsJws(token)
                         .getBody().get("roles");
     }
+
+    public String generateResetPasswordToken(String email, int expirationInMinutes) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("email", email); // Thêm email vào claims
+
+        return Jwts.builder()
+                .setClaims(claims) // Thêm thông tin vào payload
+                .setSubject("Reset Password") // Chủ đề token
+                .setIssuedAt(new Date()) // Thời gian phát hành token
+                .setExpiration(new Date(System.currentTimeMillis() + expirationInMinutes * 60 * 1000)) // Thời gian hết hạn
+                .signWith(SignatureAlgorithm.HS256, jwtSecret) // Ký token với secret
+                .compact();
+    }
+
+    public String extractEmailFromResetToken(String token) {
+        Claims claims = extractAllClaims(token);
+        return claims.get("email", String.class); // Lấy email từ claims
+    }
+
+    public boolean isResetTokenValid(String token, String email) {
+        try {
+            return extractEmailFromResetToken(token).equals(email) && !isTokenExpired(token);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+
+
+
 }

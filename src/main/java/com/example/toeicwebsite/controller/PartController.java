@@ -27,8 +27,6 @@ public class PartController {
         return ResponseEntity.ok(partService.createPart(partDTO));
     }
 
-    @SecurityRequirement(name = "Bearer Authentication")
-    @PreAuthorize("hasAuthority('Role_Admin')")
     @GetMapping("/filterPart")
     public ResponseEntity<?> filterPart(@RequestParam(defaultValue = "0") int pageNumber,
                                               @RequestParam(defaultValue = "10") int pageSize,

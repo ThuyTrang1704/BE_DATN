@@ -18,6 +18,14 @@ public interface UserService {
 
     long countUsersExcludingAdmin();
 
+    void sendResetPasswordToken(String email);
+
+    boolean validateResetPasswordToken(String token, String email);
+
+    void resetPassword(String token, String email, String newPassword);
+
+    MessageResponse changePassword(String email, String oldPassword, String newPassword);
+
 //    void createPasswordResetTokenForUser(String token);
 //
 //    void sendPasswordResetEmail(User user, String token);

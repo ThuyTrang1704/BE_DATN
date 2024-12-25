@@ -13,8 +13,10 @@ import com.example.toeicwebsite.exception.ConflictException;
 import com.example.toeicwebsite.exception.ExceptionCustom;
 import com.example.toeicwebsite.exception.ResourceNotFoundException;
 import com.example.toeicwebsite.service.JwtService;
+import com.example.toeicwebsite.service.MailService;
 import com.example.toeicwebsite.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.mail.SimpleMailMessage;
@@ -28,11 +30,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import javax.persistence.EntityNotFoundException;
 import javax.servlet.http.HttpServletResponse;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -48,6 +48,11 @@ public class UserServiceImpl implements UserService {
     private RoleRepository roleRepository;
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
+    @Autowired
+    private MailService mailService;
+
+    @Value("${reset.password.url}")
+    private String resetPasswordUrl;
 
 
     @Autowired
@@ -171,6 +176,84 @@ public class UserServiceImpl implements UserService {
     @Override
     public long countUsersExcludingAdmin() {
         return userRepository.countUsersExcludingAdmin();
+    }
+
+    @Override
+    public void sendResetPasswordToken(String email) {
+        // Tìm user theo email
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with email: " + email));
+
+        // Tạo token reset password (hết hạn sau 10 phút)
+        String resetToken = jwtService.generateResetPasswordToken(email, 10);
+
+        // Lưu token vào DB
+        user.setResetToken(resetToken);
+        userRepository.save(user);
+
+        // Gửi email chứa token
+        String resetLink = resetPasswordUrl + resetToken + "&email=" + email + "&newPassword=";
+
+
+        // Chuẩn bị dữ liệu động cho template
+        Map<String, Object> templateModel = Map.of(
+                "userName", user.getName(),
+                "resetLink", resetLink
+        );
+        // Gửi email với template
+        mailService.sendEmailWithTemplate(email, "Reset Your Password", "forgot-password", templateModel);
+    }
+
+    @Override
+    public boolean validateResetPasswordToken(String token, String email) {
+        // Kiểm tra token hợp lệ
+        return jwtService.isResetTokenValid(token, email);
+    }
+
+    @Override
+    public void resetPassword(String token, String email, String newPassword) {
+        // Validate token
+        if (!validateResetPasswordToken(token, email)) {
+            throw new IllegalArgumentException("Token is invalid or expired");
+        }
+
+        // Tìm user
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with email: " + email));
+
+        // Đặt lại mật khẩu mới
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setResetToken(null); // Xóa token sau khi đặt lại mật khẩu
+        userRepository.save(user);
+    }
+
+    @Override
+    public MessageResponse changePassword(String email, String oldPassword, String newPassword) {
+        try {
+            // Tìm user theo email
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("User not found."));
+
+            // Kiểm tra mật khẩu cũ
+            if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+                throw new IllegalArgumentException("Old password is incorrect.");
+            }
+
+            // Mã hóa mật khẩu mới và lưu vào database
+            String encodedPassword = passwordEncoder.encode(newPassword);
+            user.setPassword(encodedPassword);
+            userRepository.save(user);
+
+            // Trả về MessageResponse với httpCode 200 (OK) và thông báo thành công
+            return new MessageResponse(200, "Password changed successfully.");
+
+        } catch (IllegalArgumentException e) {
+            // Trả về MessageResponse với httpCode 400 (Bad Request) và thông báo lỗi
+            return new MessageResponse(400, e.getMessage());
+        } catch (Exception e) {
+            // Trả về MessageResponse với httpCode 500 (Internal Server Error) và thông báo lỗi
+            return new MessageResponse(500, "Something went wrong!");
+        }
     }
 
 

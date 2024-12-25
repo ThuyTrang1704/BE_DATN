@@ -22,6 +22,12 @@ public interface JwtService {
 
     boolean isTokenValid(String token, UserDetails userDetails);
 
+    String generateResetPasswordToken(String email, int expirationInMinutes);
+
+    String extractEmailFromResetToken(String token);
+
+    boolean isResetTokenValid(String token, String email);
+
     boolean isTokenExpired(String token);
 
     Date extractExpiration(String token);
